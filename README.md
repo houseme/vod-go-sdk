@@ -25,13 +25,14 @@ func main() {
     client.SecretId = os.Getenv("SECRET_ID")
     client.SecretKey = os.Getenv("SECRET_KEY")
     
-    req := NewVodUploadRequest()
+    req := vod.NewVodUploadRequest()
     req.MediaFilePath = common.StringPtr("video/Wildlife.mp4")
     req.CoverFilePath = common.StringPtr("video/Wildlife-cover.png")
     
-    rsp, err := client.Upload(region, req)
+    rsp, err := client.Upload("ap-guangzhou", req)
     if err != nil {
         fmt.Println(err)
+        return
     }
     fmt.Println(*rsp.Response.FileId)
     fmt.Println(*rsp.Response.MediaUrl)
