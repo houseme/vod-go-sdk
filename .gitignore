@@ -1,0 +1,9 @@
+.idea/
+dist/
+cover.html
+cover.out
+covprofile
+coverage.html
+*.o
+*.a
+*.so
