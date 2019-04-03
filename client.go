@@ -66,14 +66,14 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 
 	mediaStoragePath := applyUploadResponse.Response.MediaStoragePath
 	if NotEmptyStr(request.MediaType) && NotEmptyStr(mediaStoragePath) {
-		if err = p.uploadCos(cosClient, *request.MediaFilePath, *mediaStoragePath); err != nil {
+		if err = p.uploadCos(cosClient, *request.MediaFilePath, (*mediaStoragePath)[1:]); err != nil {
 			return nil, err
 		}
 	}
 
 	coverStoragePath := applyUploadResponse.Response.CoverStoragePath
 	if NotEmptyStr(request.CoverType) && NotEmptyStr(coverStoragePath) {
-		if err = p.uploadCos(cosClient, *request.CoverFilePath, *coverStoragePath); err != nil {
+		if err = p.uploadCos(cosClient, *request.CoverFilePath, (*coverStoragePath)[1:]); err != nil {
 			return nil, err
 		}
 	}
