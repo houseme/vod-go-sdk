@@ -14,6 +14,7 @@ import (
 )
 
 const multipartUploadThreshold = 5 * 1024 * 1024
+const defaultConcurrentUploadNumber = 5
 
 type VodUploadClient struct {
 	SecretId  string
@@ -66,14 +67,14 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 
 	mediaStoragePath := applyUploadResponse.Response.MediaStoragePath
 	if NotEmptyStr(request.MediaType) && NotEmptyStr(mediaStoragePath) {
-		if err = p.uploadCos(cosClient, *request.MediaFilePath, (*mediaStoragePath)[1:]); err != nil {
+		if err = p.uploadCos(cosClient, *request.MediaFilePath, (*mediaStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
 			return nil, err
 		}
 	}
 
 	coverStoragePath := applyUploadResponse.Response.CoverStoragePath
 	if NotEmptyStr(request.CoverType) && NotEmptyStr(coverStoragePath) {
-		if err = p.uploadCos(cosClient, *request.CoverFilePath, (*coverStoragePath)[1:]); err != nil {
+		if err = p.uploadCos(cosClient, *request.CoverFilePath, (*coverStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
 			return nil, err
 		}
 	}
@@ -92,7 +93,7 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 	return vodUploadResponse, nil
 }
 
-func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPath string) error {
+func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPath string, concurrentUploadNumber uint64) error {
 	file, err := os.Open(localPath)
 	if err != nil {
 		return err
@@ -116,8 +117,9 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPat
 		multiOpt := &cos.MultiUploadOptions{
 			OptIni:   nil,
 			PartSize: 1,
+			ThreadPoolSize: int(concurrentUploadNumber),
 		}
-		_, _, err = client.Object.MultiUpload(context.Background(), cosPath, file, multiOpt)
+		_, _, err = client.Object.MultiUpload(context.Background(), cosPath, localPath, multiOpt)
 		if err != nil {
 			return err
 		}
@@ -170,6 +172,10 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 			}
 			request.CoverType = &coverType
 		}
+	}
+
+	if request.ConcurrentUploadNumber == nil {
+		request.ConcurrentUploadNumber = common.Uint64Ptr(defaultConcurrentUploadNumber)
 	}
 
 	return nil
