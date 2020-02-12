@@ -7,9 +7,11 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod/v20180717"
 	"github.com/tencentyun/cos-go-sdk-v5"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"time"
 )
 
@@ -20,6 +22,7 @@ type VodUploadClient struct {
 	SecretId  string
 	SecretKey string
 	Timeout   int64
+	Transport http.RoundTripper
 }
 
 func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*VodUploadResponse, error) {
@@ -32,6 +35,29 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 	apiClient, err := v20180717.NewClient(credential, region, prof)
 	if err != nil {
 		return nil, err
+	}
+
+	if p.Transport != nil {
+		apiClient.WithHttpTransport(p.Transport)
+	}
+
+	//TODO：判断文件类型是否为m3u8
+	segmentUrls := []*string{}
+	if *request.MediaType == "m3u8" || *request.MediaType == "mpd" {
+		c, err := ioutil.ReadFile(*request.MediaFilePath)
+		if err != nil {
+			return nil, err
+		}
+		content := string(c)
+
+		parseStreamingManifestRequest := v20180717.NewParseStreamingManifestRequest()
+		parseStreamingManifestRequest.MediaManifestContent = &content
+		parseStreamingManifestResponse, err := apiClient.ParseStreamingManifest(parseStreamingManifestRequest)
+		if err != nil {
+			return nil, err
+		}
+
+		segmentUrls = parseStreamingManifestResponse.Response.MediaSegmentSet
 	}
 
 	applyUploadResponse, err := apiClient.ApplyUpload(&request.ApplyUploadRequest)
@@ -48,6 +74,10 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 		cosTransport.SecretID = *tempCertificate.SecretId
 		cosTransport.SecretKey = *tempCertificate.SecretKey
 		cosTransport.SessionToken = *tempCertificate.Token
+	}
+
+	if p.Transport != nil {
+		cosTransport.Transport = p.Transport
 	}
 
 	var timeout int64
@@ -75,6 +105,18 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 	coverStoragePath := applyUploadResponse.Response.CoverStoragePath
 	if NotEmptyStr(request.CoverType) && NotEmptyStr(coverStoragePath) {
 		if err = p.uploadCos(cosClient, *request.CoverFilePath, (*coverStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, segmentUrl := range segmentUrls {
+		dir := path.Base(*request.MediaFilePath)
+		segmentFilePath := path.Join(dir, *segmentUrl)
+
+		cosDir := path.Base(*mediaStoragePath)
+		segmentStoragePath := path.Join(cosDir, *segmentUrl)
+
+		if err = p.uploadCos(cosClient, segmentFilePath, segmentStoragePath[1:], *request.ConcurrentUploadNumber); err != nil {
 			return nil, err
 		}
 	}
@@ -115,8 +157,8 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPat
 		}
 	} else {
 		multiOpt := &cos.MultiUploadOptions{
-			OptIni:   nil,
-			PartSize: 1,
+			OptIni:         nil,
+			PartSize:       1,
 			ThreadPoolSize: int(concurrentUploadNumber),
 		}
 		_, _, err = client.Object.MultiUpload(context.Background(), cosPath, localPath, multiOpt)
