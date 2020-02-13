@@ -50,5 +50,5 @@ if err !=nil {
     fmt.Println(err)
     return
 }
-client.Transport := &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
 ```
