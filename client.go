@@ -41,7 +41,6 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 		apiClient.WithHttpTransport(p.Transport)
 	}
 
-	//TODO：判断文件类型是否为m3u8
 	segmentUrls := []*string{}
 	if *request.MediaType == "m3u8" || *request.MediaType == "mpd" {
 		c, err := ioutil.ReadFile(*request.MediaFilePath)
@@ -52,6 +51,7 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 
 		parseStreamingManifestRequest := v20180717.NewParseStreamingManifestRequest()
 		parseStreamingManifestRequest.MediaManifestContent = &content
+		parseStreamingManifestRequest.MediaType = request.MediaType
 		parseStreamingManifestResponse, err := apiClient.ParseStreamingManifest(parseStreamingManifestRequest)
 		if err != nil {
 			return nil, err
