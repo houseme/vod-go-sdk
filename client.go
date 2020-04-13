@@ -51,7 +51,7 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 
 		parseStreamingManifestRequest := v20180717.NewParseStreamingManifestRequest()
 		parseStreamingManifestRequest.MediaManifestContent = &content
-		parseStreamingManifestRequest.MediaType = request.MediaType
+		parseStreamingManifestRequest.ManifestType = request.MediaType
 		parseStreamingManifestResponse, err := apiClient.ParseStreamingManifest(parseStreamingManifestRequest)
 		if err != nil {
 			return nil, err
@@ -110,10 +110,10 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 	}
 
 	for _, segmentUrl := range segmentUrls {
-		dir := path.Base(*request.MediaFilePath)
+		dir := path.Dir(*request.MediaFilePath)
 		segmentFilePath := path.Join(dir, *segmentUrl)
 
-		cosDir := path.Base(*mediaStoragePath)
+		cosDir := path.Dir(*mediaStoragePath)
 		segmentStoragePath := path.Join(cosDir, *segmentUrl)
 
 		if err = p.uploadCos(cosClient, segmentFilePath, segmentStoragePath[1:], *request.ConcurrentUploadNumber); err != nil {
