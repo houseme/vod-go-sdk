@@ -3,14 +3,15 @@ package vod
 import (
 	"context"
 	"fmt"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod/v20180717"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+	v20180717 "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod/v20180717"
+	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
 const multipartUploadThreshold = 5 * 1024 * 1024
@@ -95,6 +96,8 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 
 func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPath string, concurrentUploadNumber uint64) error {
 	file, err := os.Open(localPath)
+	defer file.Close()
+
 	if err != nil {
 		return err
 	}
@@ -115,8 +118,8 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPat
 		}
 	} else {
 		multiOpt := &cos.MultiUploadOptions{
-			OptIni:   nil,
-			PartSize: 1,
+			OptIni:         nil,
+			PartSize:       0,
 			ThreadPoolSize: int(concurrentUploadNumber),
 		}
 		_, _, err = client.Object.MultiUpload(context.Background(), cosPath, localPath, multiOpt)
