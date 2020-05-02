@@ -20,6 +20,7 @@ const defaultConcurrentUploadNumber = 5
 type VodUploadClient struct {
 	SecretId  string
 	SecretKey string
+	Token     string
 	Timeout   int64
 }
 
@@ -28,7 +29,13 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 		return nil, err
 	}
 
-	credential := common.NewCredential(p.SecretId, p.SecretKey)
+	var credential *common.Credential
+	if p.Token == "" {
+		credential = common.NewCredential(p.SecretId, p.SecretKey)
+	} else {
+		credential = common.NewTokenCredential(p.SecretId, p.SecretKey, p.Token)
+	}
+
 	prof := profile.NewClientProfile()
 	apiClient, err := v20180717.NewClient(credential, region, prof)
 	if err != nil {
