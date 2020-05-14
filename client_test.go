@@ -15,6 +15,8 @@ func getClient() *VodUploadClient {
 	client := &VodUploadClient{}
 	client.SecretId = os.Getenv("SECRET_ID")
 	client.SecretKey = os.Getenv("SECRET_KEY")
+	//set Credentials Token if necessary
+	//client.Token = "xxx"
 	return client
 }
 
