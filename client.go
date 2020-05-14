@@ -49,23 +49,14 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 		apiClient.WithHttpTransport(p.Transport)
 	}
 
-	segmentUrls := []*string{}
-	if *request.MediaType == "m3u8" || *request.MediaType == "mpd" {
-		c, err := ioutil.ReadFile(*request.MediaFilePath)
+	parsedManifest := map[string]bool{}
+	segmentFilePathList := []string{}
+
+	if IsManifestMediaType(*request.MediaType) {
+		err = p.parseManifest(apiClient, *request.MediaFilePath, *request.MediaType, parsedManifest, segmentFilePathList)
 		if err != nil {
 			return nil, err
 		}
-		content := string(c)
-
-		parseStreamingManifestRequest := v20180717.NewParseStreamingManifestRequest()
-		parseStreamingManifestRequest.MediaManifestContent = &content
-		parseStreamingManifestRequest.ManifestType = request.MediaType
-		parseStreamingManifestResponse, err := apiClient.ParseStreamingManifest(parseStreamingManifestRequest)
-		if err != nil {
-			return nil, err
-		}
-
-		segmentUrls = parseStreamingManifestResponse.Response.MediaSegmentSet
 	}
 
 	applyUploadResponse, err := apiClient.ApplyUpload(&request.ApplyUploadRequest)
@@ -117,12 +108,11 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 		}
 	}
 
-	for _, segmentUrl := range segmentUrls {
-		dir := path.Dir(*request.MediaFilePath)
-		segmentFilePath := path.Join(dir, *segmentUrl)
-
+	for _, segmentFilePath := range segmentFilePathList {
 		cosDir := path.Dir(*mediaStoragePath)
-		segmentStoragePath := path.Join(cosDir, *segmentUrl)
+		parentPath := path.Dir(*request.MediaFilePath)
+		segmentRelativePath := segmentFilePath[len(parentPath):]
+		segmentStoragePath := path.Join(cosDir, segmentRelativePath)
 
 		if err = p.uploadCos(cosClient, segmentFilePath, segmentStoragePath[1:], *request.ConcurrentUploadNumber); err != nil {
 			return nil, err
@@ -231,4 +221,49 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 	}
 
 	return nil
+}
+
+func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFilePath, manifestMediaType string, parsedManifest map[string]bool, segmentFilePathList []string) error {
+	if parsedManifest[manifestFilePath] {
+		return fmt.Errorf("repeat manifest: %s", manifestFilePath)
+	}
+
+	parsedManifest[manifestFilePath] = true
+
+	content, err := p.getManifestContent(manifestFilePath)
+	if err != nil {
+		return err
+	}
+
+	parseStreamingManifestRequest := v20180717.NewParseStreamingManifestRequest()
+	parseStreamingManifestRequest.MediaManifestContent = &content
+	parseStreamingManifestRequest.ManifestType = &manifestMediaType
+	parseStreamingManifestResponse, err := apiClient.ParseStreamingManifest(parseStreamingManifestRequest)
+	if err != nil {
+		return err
+	}
+
+	segmentUrls := []*string{}
+	segmentUrls = parseStreamingManifestResponse.Response.MediaSegmentSet
+	for _, segmentUrl := range segmentUrls {
+		mediaType := GetFileType(*segmentUrl)
+		mediaFilePath := path.Join(path.Dir(manifestFilePath), *segmentUrl)
+		segmentFilePathList = append(segmentFilePathList, mediaFilePath)
+
+		if IsManifestMediaType(mediaType) {
+			err = p.parseManifest(apiClient, mediaFilePath, mediaType, parsedManifest, segmentFilePathList)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *VodUploadClient) getManifestContent(manifestFilePath string) (string, error) {
+	c, err := ioutil.ReadFile(manifestFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	return string(c), nil
 }

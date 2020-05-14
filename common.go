@@ -34,3 +34,11 @@ func IsEmptyStr(target *string) bool {
 func NotEmptyStr(target *string) bool {
 	return !IsEmptyStr(target)
 }
+
+func IsManifestMediaType(mediaType string) bool {
+	if mediaType == "m3u8" || mediaType == "mpd" {
+		return true
+	}
+
+	return false
+}
