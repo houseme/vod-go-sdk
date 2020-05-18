@@ -1,12 +1,13 @@
 package vod
 
 import (
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 const region = "ap-guangzhou"
@@ -166,6 +167,20 @@ func TestUploadHls(t *testing.T) {
 	client := getClient()
 	req := NewVodUploadRequest()
 	req.MediaFilePath = common.StringPtr("video/hls/prog_index.m3u8")
+	rsp, err := client.Upload(region, req)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(*rsp.Response.FileId)
+	t.Log(*rsp.Response.MediaUrl)
+	t.Log(*rsp.Response.CoverUrl)
+}
+
+func TestUploadMasterPlaylist(t *testing.T) {
+	client := getClient()
+	req := NewVodUploadRequest()
+	req.MediaFilePath = common.StringPtr("video/hls/bipbopall.m3u8")
 	rsp, err := client.Upload(region, req)
 	if err != nil {
 		t.Error(err)

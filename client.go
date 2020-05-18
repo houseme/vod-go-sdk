@@ -53,7 +53,7 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 	segmentFilePathList := []string{}
 
 	if IsManifestMediaType(*request.MediaType) {
-		err = p.parseManifest(apiClient, *request.MediaFilePath, *request.MediaType, parsedManifest, segmentFilePathList)
+		err = p.parseManifest(apiClient, *request.MediaFilePath, *request.MediaType, parsedManifest, &segmentFilePathList)
 		if err != nil {
 			return nil, err
 		}
@@ -223,7 +223,7 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 	return nil
 }
 
-func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFilePath, manifestMediaType string, parsedManifest map[string]bool, segmentFilePathList []string) error {
+func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFilePath, manifestMediaType string, parsedManifest map[string]bool, segmentFilePathList *[]string) error {
 	if parsedManifest[manifestFilePath] {
 		return fmt.Errorf("repeat manifest: %s", manifestFilePath)
 	}
@@ -248,11 +248,13 @@ func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFil
 	for _, segmentUrl := range segmentUrls {
 		mediaType := GetFileType(*segmentUrl)
 		mediaFilePath := path.Join(path.Dir(manifestFilePath), *segmentUrl)
-		segmentFilePathList = append(segmentFilePathList, mediaFilePath)
+		*segmentFilePathList = append(*segmentFilePathList, mediaFilePath)
 
 		if IsManifestMediaType(mediaType) {
 			err = p.parseManifest(apiClient, mediaFilePath, mediaType, parsedManifest, segmentFilePathList)
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 
