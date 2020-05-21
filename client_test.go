@@ -1,10 +1,13 @@
 package vod
 
 import (
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 )
 
 const region = "ap-guangzhou"
@@ -19,6 +22,7 @@ func getClient() *VodUploadClient {
 }
 
 func TestLackMediaPath(t *testing.T) {
+	t.Logf("secretId: %s", os.Getenv("SECRET_ID"))
 	client := getClient()
 	req := NewVodUploadRequest()
 	_, err := client.Upload(region, req)
@@ -75,7 +79,7 @@ func TestInvalidMediaType(t *testing.T) {
 	req.MediaFilePath = common.StringPtr("video/Wildlife.mp4")
 	req.MediaType = common.StringPtr("test")
 	_, err := client.Upload(region, req)
-	if !strings.HasPrefix(err.Error(), "[TencentCloudSDKError] Code=InvalidParameterValue.VideoType, Message=invalid video type") {
+	if !strings.HasPrefix(err.Error(), "[TencentCloudSDKError] Code=InvalidParameterValue.MediaType, Message=invalid media type") {
 		t.Error(err.Error())
 	}
 }
@@ -130,6 +134,57 @@ func TestUploadWithSubAppId(t *testing.T) {
 	rsp, err := client.Upload(region, req)
 	if err != nil {
 		t.Error(err)
+	} else {
+		t.Log(*rsp.Response.FileId)
+		t.Log(*rsp.Response.MediaUrl)
+		t.Log(*rsp.Response.CoverUrl)
+	}
+}
+
+func TestUploadWithProxy(t *testing.T) {
+	client := getClient()
+	proxyUrl, err := url.Parse("http://127.0.0.1:8888")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+
+	req := NewVodUploadRequest()
+	req.MediaFilePath = common.StringPtr("video/Wildlife.mp4")
+	req.CoverFilePath = common.StringPtr("video/Wildlife-cover.png")
+	rsp, err := client.Upload(region, req)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(*rsp.Response.FileId)
+	t.Log(*rsp.Response.MediaUrl)
+	t.Log(*rsp.Response.CoverUrl)
+}
+
+func TestUploadHls(t *testing.T) {
+	client := getClient()
+	req := NewVodUploadRequest()
+	req.MediaFilePath = common.StringPtr("video/hls/prog_index.m3u8")
+	rsp, err := client.Upload(region, req)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(*rsp.Response.FileId)
+	t.Log(*rsp.Response.MediaUrl)
+	t.Log(*rsp.Response.CoverUrl)
+}
+
+func TestUploadMasterPlaylist(t *testing.T) {
+	client := getClient()
+	req := NewVodUploadRequest()
+	req.MediaFilePath = common.StringPtr("video/hls/bipbopall.m3u8")
+	rsp, err := client.Upload(region, req)
+	if err != nil {
+		t.Error(err)
+		return
 	}
 	t.Log(*rsp.Response.FileId)
 	t.Log(*rsp.Response.MediaUrl)

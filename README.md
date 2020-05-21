@@ -39,3 +39,16 @@ func main() {
     fmt.Println(*rsp.Response.CoverUrl)
 }
 ```
+## 设置代理
+```
+client := &vod.VodUploadClient{}
+client.SecretId = os.Getenv("SECRET_ID")
+client.SecretKey = os.Getenv("SECRET_KEY")
+
+proxyUrl, err := url.Parse("http://proxyHost:proxyPort")
+if err !=nil {
+    fmt.Println(err)
+    return
+}
+client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+```
