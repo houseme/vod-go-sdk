@@ -148,7 +148,7 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPat
 	if stat.Size() < multipartUploadThreshold {
 		putOpt := &cos.ObjectPutOptions{
 			ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
-				ContentLength: int(stat.Size()),
+				ContentLength: stat.Size(),
 			},
 		}
 		_, err = client.Object.Put(context.Background(), cosPath, file, putOpt)
