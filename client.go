@@ -28,7 +28,15 @@ type VodUploadClient struct {
 }
 
 func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*VodUploadResponse, error) {
-	if err := p.prefixCheckAndSetDefaultVal(region, request); err != nil {
+	return p.doUpload(region, request, false)
+}
+
+func (p *VodUploadClient) UploadFromUrl(region string, request *VodUploadRequest) (*VodUploadResponse, error) {
+	return p.doUpload(region, request, true)
+}
+
+func (p *VodUploadClient) doUpload(region string, request *VodUploadRequest, isFromUrl bool) (*VodUploadResponse, error) {
+	if err := p.prefixCheckAndSetDefaultVal(region, request, isFromUrl); err != nil {
 		return nil, err
 	}
 
@@ -52,7 +60,7 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 	parsedManifest := map[string]bool{}
 	segmentFilePathList := []string{}
 
-	if IsManifestMediaType(*request.MediaType) {
+	if IsManifestMediaType(*request.MediaType) && !isFromUrl {
 		err = p.parseManifest(apiClient, *request.MediaFilePath, *request.MediaType, parsedManifest, &segmentFilePathList)
 		if err != nil {
 			return nil, err
@@ -95,27 +103,42 @@ func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*Vod
 	})
 
 	mediaStoragePath := applyUploadResponse.Response.MediaStoragePath
-	if NotEmptyStr(request.MediaType) && NotEmptyStr(mediaStoragePath) {
-		if err = p.uploadCos(cosClient, *request.MediaFilePath, (*mediaStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
-			return nil, err
-		}
-	}
-
 	coverStoragePath := applyUploadResponse.Response.CoverStoragePath
-	if NotEmptyStr(request.CoverType) && NotEmptyStr(coverStoragePath) {
-		if err = p.uploadCos(cosClient, *request.CoverFilePath, (*coverStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
-			return nil, err
+
+	if isFromUrl {
+		if NotEmptyStr(request.MediaType) && NotEmptyStr(mediaStoragePath) {
+			if err = p.uploadCosFromUrl(cosClient, *request.MediaUrl, (*mediaStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
+				return nil, err
+			}
 		}
-	}
 
-	for _, segmentFilePath := range segmentFilePathList {
-		cosDir := path.Dir(*mediaStoragePath)
-		parentPath := path.Dir(*request.MediaFilePath)
-		segmentRelativePath := segmentFilePath[len(parentPath):]
-		segmentStoragePath := path.Join(cosDir, segmentRelativePath)
+		if NotEmptyStr(request.CoverType) && NotEmptyStr(coverStoragePath) {
+			if err = p.uploadCos(cosClient, *request.CoverUrl, (*coverStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		if NotEmptyStr(request.MediaType) && NotEmptyStr(mediaStoragePath) {
+			if err = p.uploadCos(cosClient, *request.MediaFilePath, (*mediaStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
+				return nil, err
+			}
+		}
 
-		if err = p.uploadCos(cosClient, segmentFilePath, segmentStoragePath[1:], *request.ConcurrentUploadNumber); err != nil {
-			return nil, err
+		if NotEmptyStr(request.CoverType) && NotEmptyStr(coverStoragePath) {
+			if err = p.uploadCos(cosClient, *request.CoverFilePath, (*coverStoragePath)[1:], *request.ConcurrentUploadNumber); err != nil {
+				return nil, err
+			}
+		}
+
+		for _, segmentFilePath := range segmentFilePathList {
+			cosDir := path.Dir(*mediaStoragePath)
+			parentPath := path.Dir(*request.MediaFilePath)
+			segmentRelativePath := segmentFilePath[len(parentPath):]
+			segmentStoragePath := path.Join(cosDir, segmentRelativePath)
+
+			if err = p.uploadCos(cosClient, segmentFilePath, segmentStoragePath[1:], *request.ConcurrentUploadNumber); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -169,50 +192,123 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPat
 	return nil
 }
 
-func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *VodUploadRequest) error {
+func (p *VodUploadClient) uploadCosFromUrl(client *cos.Client, url string, cosPath string, concurrentUploadNumber uint64) error {
+	r, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	if r.StatusCode != http.StatusOK {
+		return fmt.Errorf("url: %s, http status code: %d", url, r.StatusCode)
+	}
+
+	putOpt := &cos.ObjectPutOptions{
+		ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
+			ContentLength: r.ContentLength,
+		},
+	}
+	_, err = client.Object.Put(context.Background(), cosPath, r.Body, putOpt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *VodUploadRequest, isFromUrl bool) error {
 	if region == "" {
 		return &VodClientError{
 			Message: "lack region",
 		}
 	}
-	if IsEmptyStr(request.MediaFilePath) {
-		return &VodClientError{
-			Message: "lack media path",
-		}
-	}
-	if !FileExist(*request.MediaFilePath) {
-		return &VodClientError{
-			Message: "media path is invalid",
-		}
-	}
-	if IsEmptyStr(request.MediaType) {
-		mediaType := GetFileType(*request.MediaFilePath)
-		if mediaType == "" {
-			return &VodClientError{
-				Message: "lack media type",
-			}
-		}
-		request.MediaType = &mediaType
-	}
-	if IsEmptyStr(request.MediaName) {
-		mediaName := GetFileName(*request.MediaFilePath)
-		request.MediaName = &mediaName
-	}
 
-	if NotEmptyStr(request.CoverFilePath) {
-		if !FileExist(*request.CoverFilePath) {
+	if isFromUrl {
+		if IsEmptyStr(request.MediaUrl) {
 			return &VodClientError{
-				Message: "cover path is invalid",
+				Message: "lack media url",
 			}
 		}
-		if IsEmptyStr(request.CoverType) {
-			coverType := GetFileType(*request.CoverFilePath)
-			if coverType == "" {
+
+		u, err := url.Parse(*request.MediaUrl)
+		if err != nil {
+			return &VodClientError{
+				Message: "media url is invalid",
+			}
+		}
+
+		if IsEmptyStr(request.MediaType) {
+			mediaType := GetFileType(u.Path)
+			if mediaType == "" {
 				return &VodClientError{
-					Message: "lack cover type",
+					Message: "lack media type",
 				}
 			}
-			request.CoverType = &coverType
+			request.MediaType = &mediaType
+		}
+		if IsEmptyStr(request.MediaName) {
+			mediaName := GetFileName(u.Path)
+			request.MediaName = &mediaName
+		}
+
+		if NotEmptyStr(request.CoverUrl) {
+			u, err := url.Parse(*request.CoverUrl)
+			if err != nil {
+				return &VodClientError{
+					Message: "cover url is invalid",
+				}
+			}
+
+			if IsEmptyStr(request.CoverType) {
+				coverType := GetFileType(u.Path)
+				if coverType == "" {
+					return &VodClientError{
+						Message: "lack cover type",
+					}
+				}
+				request.CoverType = &coverType
+			}
+		}
+	} else {
+		if IsEmptyStr(request.MediaFilePath) {
+			return &VodClientError{
+				Message: "lack media path",
+			}
+		}
+		if !FileExist(*request.MediaFilePath) {
+			return &VodClientError{
+				Message: "media path is invalid",
+			}
+		}
+		if IsEmptyStr(request.MediaType) {
+			mediaType := GetFileType(*request.MediaFilePath)
+			if mediaType == "" {
+				return &VodClientError{
+					Message: "lack media type",
+				}
+			}
+			request.MediaType = &mediaType
+		}
+		if IsEmptyStr(request.MediaName) {
+			mediaName := GetFileName(*request.MediaFilePath)
+			request.MediaName = &mediaName
+		}
+
+		if NotEmptyStr(request.CoverFilePath) {
+			if !FileExist(*request.CoverFilePath) {
+				return &VodClientError{
+					Message: "cover path is invalid",
+				}
+			}
+			if IsEmptyStr(request.CoverType) {
+				coverType := GetFileType(*request.CoverFilePath)
+				if coverType == "" {
+					return &VodClientError{
+						Message: "lack cover type",
+					}
+				}
+				request.CoverType = &coverType
+			}
 		}
 	}
 

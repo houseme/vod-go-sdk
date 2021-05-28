@@ -190,3 +190,17 @@ func TestUploadMasterPlaylist(t *testing.T) {
 	t.Log(*rsp.Response.MediaUrl)
 	t.Log(*rsp.Response.CoverUrl)
 }
+
+func TestUploadFromUrl(t *testing.T) {
+	client := getClient()
+	req := NewVodUploadRequest()
+	req.MediaUrl = common.StringPtr("http://test.com/f0.mp4")
+	rsp, err := client.UploadFromUrl(region, req)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(*rsp.Response.FileId)
+	t.Log(*rsp.Response.MediaUrl)
+	t.Log(*rsp.Response.CoverUrl)
+}
