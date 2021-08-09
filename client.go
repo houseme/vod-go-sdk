@@ -21,7 +21,7 @@ const defaultConcurrentUploadNumber = 5
 
 // unit: MB
 const defaultPartSize = 1
-const autoPartSizeFileSizeThreshold = 1024 * 1024 * 1024
+const autoPartSizeFileSizeThreshold = 5 * 1024 * 1024 * 1024
 
 type VodUploadClient struct {
 	SecretId  string
