@@ -19,6 +19,10 @@ import (
 const multipartUploadThreshold = 5 * 1024 * 1024
 const defaultConcurrentUploadNumber = 5
 
+// unit: MB
+const defaultPartSize = 1
+const autoPartSizeFileSizeThreshold = 1024 * 1024 * 1024
+
 type VodUploadClient struct {
 	SecretId  string
 	SecretKey string
@@ -179,9 +183,13 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPat
 			return err
 		}
 	} else {
+		partSize := defaultPartSize
+		if stat.Size() >= autoPartSizeFileSizeThreshold {
+			partSize = 0
+		}
 		multiOpt := &cos.MultiUploadOptions{
 			OptIni:         nil,
-			PartSize:       0,
+			PartSize:       int64(partSize),
 			ThreadPoolSize: int(concurrentUploadNumber),
 		}
 		_, _, err = client.Object.MultiUpload(context.Background(), cosPath, localPath, multiOpt)
