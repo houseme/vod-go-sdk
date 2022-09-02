@@ -1,15 +1,16 @@
 language: go
 go:
-  - 1.6
-  - 1.7
-  - 1.8
-  - 1.9
+  - 1.14
+  - 1.15
+  - 1.16
+  - 1.17
   - master
 
 sudo: false
 
 before_install:
-  - go get -u github.com/tencentcloud/tencentcloud-sdk-go
+  - go get -u github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
+  - go get -u github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod
   - go get -u github.com/tencentyun/cos-go-sdk-v5
 
 install:

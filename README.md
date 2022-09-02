@@ -20,7 +20,8 @@ VOD Go SDK 是基于云点播上传功能进行包装的 Go 版本 SDK，SDK 中
 
 ## 安装
 ```
-go get -u github.com/tencentcloud/tencentcloud-sdk-go
+go get -u github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
+go get -u github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod
 go get -u github.com/tencentyun/cos-go-sdk-v5
 go get -u github.com/tencentyun/vod-go-sdk
 ```

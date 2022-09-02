@@ -23,6 +23,7 @@ const defaultConcurrentUploadNumber = 5
 const defaultPartSize = 1
 const autoPartSizeFileSizeThreshold = 5 * 1024 * 1024 * 1024
 
+// VodUploadClient is the client of vod upload.
 type VodUploadClient struct {
 	SecretId  string
 	SecretKey string
@@ -31,10 +32,12 @@ type VodUploadClient struct {
 	Transport http.RoundTripper
 }
 
+// Upload uploads the file to vod.
 func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*VodUploadResponse, error) {
 	return p.doUpload(region, request, false)
 }
 
+// UploadFromUrl uploads the file from url to vod.
 func (p *VodUploadClient) UploadFromUrl(region string, request *VodUploadRequest) (*VodUploadResponse, error) {
 	return p.doUpload(region, request, true)
 }
@@ -62,7 +65,7 @@ func (p *VodUploadClient) doUpload(region string, request *VodUploadRequest, isF
 	}
 
 	parsedManifest := map[string]bool{}
-	segmentFilePathList := []string{}
+	var segmentFilePathList []string
 
 	if IsManifestMediaType(*request.MediaType) && !isFromUrl {
 		err = p.parseManifest(apiClient, *request.MediaFilePath, *request.MediaType, parsedManifest, &segmentFilePathList)
@@ -160,13 +163,17 @@ func (p *VodUploadClient) doUpload(region string, request *VodUploadRequest, isF
 	return vodUploadResponse, nil
 }
 
-func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPath string, concurrentUploadNumber uint64) error {
+func (p *VodUploadClient) uploadCos(client *cos.Client, localPath, cosPath string, concurrentUploadNumber uint64) error {
 	file, err := os.Open(localPath)
-	defer file.Close()
 
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		_ = file.Close()
+	}()
+
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -200,7 +207,7 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath string, cosPat
 	return nil
 }
 
-func (p *VodUploadClient) uploadCosFromUrl(client *cos.Client, url string, cosPath string, concurrentUploadNumber uint64) error {
+func (p *VodUploadClient) uploadCosFromUrl(client *cos.Client, url, cosPath string, concurrentUploadNumber uint64) error {
 	r, err := http.Get(url)
 	if err != nil {
 		return err
@@ -333,7 +340,6 @@ func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFil
 	}
 
 	parsedManifest[manifestFilePath] = true
-
 	content, err := p.getManifestContent(manifestFilePath)
 	if err != nil {
 		return err
@@ -347,7 +353,7 @@ func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFil
 		return err
 	}
 
-	segmentUrls := []*string{}
+	var segmentUrls []*string
 	segmentUrls = parseStreamingManifestResponse.Response.MediaSegmentSet
 	for _, segmentUrl := range segmentUrls {
 		mediaType := GetFileType(*segmentUrl)
