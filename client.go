@@ -3,7 +3,6 @@ package vod
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -212,7 +211,9 @@ func (p *VodUploadClient) uploadCosFromUrl(client *cos.Client, url, cosPath stri
 	if err != nil {
 		return err
 	}
-	defer r.Body.Close()
+	defer func() {
+		_ = r.Body.Close()
+	}()
 
 	if r.StatusCode != http.StatusOK {
 		return fmt.Errorf("url: %s, http status code: %d", url, r.StatusCode)
@@ -223,8 +224,7 @@ func (p *VodUploadClient) uploadCosFromUrl(client *cos.Client, url, cosPath stri
 			ContentLength: r.ContentLength,
 		},
 	}
-	_, err = client.Object.Put(context.Background(), cosPath, r.Body, putOpt)
-	if err != nil {
+	if _, err = client.Object.Put(context.Background(), cosPath, r.Body, putOpt); err != nil {
 		return err
 	}
 
@@ -372,7 +372,7 @@ func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFil
 }
 
 func (p *VodUploadClient) getManifestContent(manifestFilePath string) (string, error) {
-	c, err := ioutil.ReadFile(manifestFilePath)
+	c, err := os.ReadFile(manifestFilePath)
 	if err != nil {
 		return "", err
 	}
