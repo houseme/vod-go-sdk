@@ -22,8 +22,8 @@ const defaultConcurrentUploadNumber = 5
 const defaultPartSize = 1
 const autoPartSizeFileSizeThreshold = 5 * 1024 * 1024 * 1024
 
-// VodUploadClient is the client of vod upload.
-type VodUploadClient struct {
+// UploadClient is the client of vod upload.
+type UploadClient struct {
 	SecretId  string
 	SecretKey string
 	Token     string
@@ -32,16 +32,16 @@ type VodUploadClient struct {
 }
 
 // Upload uploads the file to vod.
-func (p *VodUploadClient) Upload(region string, request *VodUploadRequest) (*VodUploadResponse, error) {
+func (p *UploadClient) Upload(region string, request *UploadRequest) (*UploadResponse, error) {
 	return p.doUpload(region, request, false)
 }
 
 // UploadFromUrl uploads the file from url to vod.
-func (p *VodUploadClient) UploadFromUrl(region string, request *VodUploadRequest) (*VodUploadResponse, error) {
+func (p *UploadClient) UploadFromUrl(region string, request *UploadRequest) (*UploadResponse, error) {
 	return p.doUpload(region, request, true)
 }
 
-func (p *VodUploadClient) doUpload(region string, request *VodUploadRequest, isFromUrl bool) (*VodUploadResponse, error) {
+func (p *UploadClient) doUpload(region string, request *UploadRequest, isFromUrl bool) (*UploadResponse, error) {
 	if err := p.prefixCheckAndSetDefaultVal(region, request, isFromUrl); err != nil {
 		return nil, err
 	}
@@ -63,8 +63,10 @@ func (p *VodUploadClient) doUpload(region string, request *VodUploadRequest, isF
 		apiClient.WithHttpTransport(p.Transport)
 	}
 
-	parsedManifest := map[string]bool{}
-	var segmentFilePathList []string
+	var (
+		segmentFilePathList []string
+		parsedManifest      = map[string]bool{}
+	)
 
 	if IsManifestMediaType(*request.MediaType) && !isFromUrl {
 		err = p.parseManifest(apiClient, *request.MediaFilePath, *request.MediaType, parsedManifest, &segmentFilePathList)
@@ -155,16 +157,15 @@ func (p *VodUploadClient) doUpload(region string, request *VodUploadRequest, isF
 	if err != nil {
 		return nil, err
 	}
-	vodUploadResponse := &VodUploadResponse{
+	vodUploadResponse := &UploadResponse{
 		CommitUploadResponse: *commitUploadResponse,
 	}
 
 	return vodUploadResponse, nil
 }
 
-func (p *VodUploadClient) uploadCos(client *cos.Client, localPath, cosPath string, concurrentUploadNumber uint64) error {
+func (p *UploadClient) uploadCos(client *cos.Client, localPath, cosPath string, concurrentUploadNumber uint64) error {
 	file, err := os.Open(localPath)
-
 	if err != nil {
 		return err
 	}
@@ -206,7 +207,7 @@ func (p *VodUploadClient) uploadCos(client *cos.Client, localPath, cosPath strin
 	return nil
 }
 
-func (p *VodUploadClient) uploadCosFromUrl(client *cos.Client, url, cosPath string, concurrentUploadNumber uint64) error {
+func (p *UploadClient) uploadCosFromUrl(client *cos.Client, url, cosPath string, concurrentUploadNumber uint64) error {
 	r, err := http.Get(url)
 	if err != nil {
 		return err
@@ -231,23 +232,23 @@ func (p *VodUploadClient) uploadCosFromUrl(client *cos.Client, url, cosPath stri
 	return nil
 }
 
-func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *VodUploadRequest, isFromUrl bool) error {
+func (p *UploadClient) prefixCheckAndSetDefaultVal(region string, request *UploadRequest, isFromUrl bool) error {
 	if region == "" {
-		return &VodClientError{
+		return &ClientError{
 			Message: "lack region",
 		}
 	}
 
 	if isFromUrl {
 		if IsEmptyStr(request.MediaUrl) {
-			return &VodClientError{
+			return &ClientError{
 				Message: "lack media url",
 			}
 		}
 
 		u, err := url.Parse(*request.MediaUrl)
 		if err != nil {
-			return &VodClientError{
+			return &ClientError{
 				Message: "media url is invalid",
 			}
 		}
@@ -255,7 +256,7 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 		if IsEmptyStr(request.MediaType) {
 			mediaType := GetFileType(u.Path)
 			if mediaType == "" {
-				return &VodClientError{
+				return &ClientError{
 					Message: "lack media type",
 				}
 			}
@@ -269,7 +270,7 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 		if NotEmptyStr(request.CoverUrl) {
 			u, err := url.Parse(*request.CoverUrl)
 			if err != nil {
-				return &VodClientError{
+				return &ClientError{
 					Message: "cover url is invalid",
 				}
 			}
@@ -277,7 +278,7 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 			if IsEmptyStr(request.CoverType) {
 				coverType := GetFileType(u.Path)
 				if coverType == "" {
-					return &VodClientError{
+					return &ClientError{
 						Message: "lack cover type",
 					}
 				}
@@ -286,19 +287,19 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 		}
 	} else {
 		if IsEmptyStr(request.MediaFilePath) {
-			return &VodClientError{
+			return &ClientError{
 				Message: "lack media path",
 			}
 		}
 		if !FileExist(*request.MediaFilePath) {
-			return &VodClientError{
+			return &ClientError{
 				Message: "media path is invalid",
 			}
 		}
 		if IsEmptyStr(request.MediaType) {
 			mediaType := GetFileType(*request.MediaFilePath)
 			if mediaType == "" {
-				return &VodClientError{
+				return &ClientError{
 					Message: "lack media type",
 				}
 			}
@@ -311,14 +312,14 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 
 		if NotEmptyStr(request.CoverFilePath) {
 			if !FileExist(*request.CoverFilePath) {
-				return &VodClientError{
+				return &ClientError{
 					Message: "cover path is invalid",
 				}
 			}
 			if IsEmptyStr(request.CoverType) {
 				coverType := GetFileType(*request.CoverFilePath)
 				if coverType == "" {
-					return &VodClientError{
+					return &ClientError{
 						Message: "lack cover type",
 					}
 				}
@@ -334,7 +335,7 @@ func (p *VodUploadClient) prefixCheckAndSetDefaultVal(region string, request *Vo
 	return nil
 }
 
-func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFilePath, manifestMediaType string, parsedManifest map[string]bool, segmentFilePathList *[]string) error {
+func (p *UploadClient) parseManifest(apiClient *v20180717.Client, manifestFilePath, manifestMediaType string, parsedManifest map[string]bool, segmentFilePathList *[]string) error {
 	if parsedManifest[manifestFilePath] {
 		return fmt.Errorf("repeat manifest: %s", manifestFilePath)
 	}
@@ -353,16 +354,14 @@ func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFil
 		return err
 	}
 
-	var segmentUrls []*string
-	segmentUrls = parseStreamingManifestResponse.Response.MediaSegmentSet
+	var segmentUrls = parseStreamingManifestResponse.Response.MediaSegmentSet
 	for _, segmentUrl := range segmentUrls {
 		mediaType := GetFileType(*segmentUrl)
 		mediaFilePath := path.Join(path.Dir(manifestFilePath), *segmentUrl)
 		*segmentFilePathList = append(*segmentFilePathList, mediaFilePath)
 
 		if IsManifestMediaType(mediaType) {
-			err = p.parseManifest(apiClient, mediaFilePath, mediaType, parsedManifest, segmentFilePathList)
-			if err != nil {
+			if err = p.parseManifest(apiClient, mediaFilePath, mediaType, parsedManifest, segmentFilePathList); err != nil {
 				return err
 			}
 		}
@@ -371,7 +370,7 @@ func (p *VodUploadClient) parseManifest(apiClient *v20180717.Client, manifestFil
 	return nil
 }
 
-func (p *VodUploadClient) getManifestContent(manifestFilePath string) (string, error) {
+func (p *UploadClient) getManifestContent(manifestFilePath string) (string, error) {
 	c, err := os.ReadFile(manifestFilePath)
 	if err != nil {
 		return "", err

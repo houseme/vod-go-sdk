@@ -14,9 +14,7 @@ func FileExist(target string) bool {
 
 // GetFileType returns the file type.
 func GetFileType(target string) string {
-	fileNameWithSuffix := path.Base(target)
-	fileSuffix := path.Ext(fileNameWithSuffix)
-	if fileSuffix == "" {
+	if fileSuffix := path.Ext(path.Base(target)); fileSuffix == "" {
 		return fileSuffix
 	} else {
 		return fileSuffix[1:]

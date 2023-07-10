@@ -2,8 +2,8 @@ package vod
 
 import v20180717 "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod/v20180717"
 
-// VodUploadRequest is the request struct for api Upload
-type VodUploadRequest struct {
+// UploadRequest is the request struct for api Upload
+type UploadRequest struct {
 	v20180717.ApplyUploadRequest
 	MediaFilePath          *string
 	CoverFilePath          *string
@@ -12,14 +12,14 @@ type VodUploadRequest struct {
 	CoverUrl               *string
 }
 
-// VodUploadResponse is the response struct for api Upload
-type VodUploadResponse struct {
+// UploadResponse is the response struct for api Upload
+type UploadResponse struct {
 	v20180717.CommitUploadResponse
 }
 
 // NewVodUploadRequest creates a request to invoke Upload API
-func NewVodUploadRequest() *VodUploadRequest {
-	return &VodUploadRequest{
+func NewVodUploadRequest() *UploadRequest {
+	return &UploadRequest{
 		ApplyUploadRequest: *v20180717.NewApplyUploadRequest(),
 	}
 }
