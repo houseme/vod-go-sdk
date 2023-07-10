@@ -1,4 +1,4 @@
-module github.com/tencentyun/vod-go-sdk
+module github.com/houseme/vod-go-sdk
 
 go 1.18
 
