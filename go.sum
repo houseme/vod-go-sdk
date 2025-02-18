@@ -25,6 +25,6 @@ github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1099/go.mod
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/kms v1.0.563/go.mod h1:uom4Nvi9W+Qkom0exYiJ9VWJjXwyxtPYTkKkaLMlfE0=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod v1.0.1099 h1:rteo69DvTDFloGcNFuQC7U96Bo5lf+WiOoNnqNMoJ6k=
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vod v1.0.1099/go.mod h1:H6jWqbFpHpr2d8kFuTWx0hEQz/T2DJGOB7zK+G+bfRg=
-github.com/tencentyun/cos-go-sdk-v5 v0.7.60 h1:/e/tmvRmfKexr/QQIBzWhOkZWsmY3EK72NrI6G/Tv0o=
-github.com/tencentyun/cos-go-sdk-v5 v0.7.60/go.mod h1:8+hG+mQMuRP/OIS9d83syAvXvrMj9HhkND6Q1fLghw0=
+github.com/tencentyun/cos-go-sdk-v5 v0.7.61 h1:tKNIjvsezkdtajqE887XAw1VL8Pq1HNtpc7rfgz25lA=
+github.com/tencentyun/cos-go-sdk-v5 v0.7.61/go.mod h1:8+hG+mQMuRP/OIS9d83syAvXvrMj9HhkND6Q1fLghw0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
